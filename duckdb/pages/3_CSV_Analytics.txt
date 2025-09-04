@@ -1,0 +1,47 @@
+import streamlit as st
+import duckdb
+import pandas as pd
+import plotly.express as px
+
+from utils import run_query, register_dataframe
+
+st.title("Adhoc CSV File Analysis")
+# Upload CSV
+csv_files = st.file_uploader("Upload one or more CSV files", type="csv", accept_multiple_files=True)
+table_names = []
+if csv_files:
+    for csv in csv_files:
+        # Generate a safe table name from the file name
+        import re, os
+        base_name = os.path.splitext(os.path.basename(csv.name))[0]
+        table_name = re.sub(r'\W+', '_', base_name)
+        try:
+            df = pd.read_csv(csv)
+        except Exception as e:
+            st.error(f"Error reading {csv.name}: {e}")
+            continue
+        if df.empty:
+            st.warning(f"{csv.name} is empty or could not be parsed.")
+            continue
+        try:
+            register_dataframe(table_name, df)
+            table_names.append(table_name)
+        except Exception as e:
+            st.error(f"Error registering {csv.name} as table {table_name}: {e}")
+            continue
+        st.success(f"{csv.name} uploaded and registered as '{table_name}' table.")
+        st.subheader(f"Preview of {csv.name} ({table_name})")
+        st.dataframe(df.head())
+        st.markdown("---")
+
+    if table_names:
+        st.subheader("Ad-hoc SQL Query on Uploaded Tables")
+        st.info(f"Available tables: {', '.join(table_names)}")
+        default_query = f"SELECT * FROM {table_names[0]} LIMIT 10"
+        user_query = st.text_area("Enter your SQL query:", value=default_query, height=100)
+        if st.button("Run Query"):
+            try:
+                result = run_query(user_query)
+                st.dataframe(result)
+            except Exception as e:
+                st.error(f"Query error: {e}")
