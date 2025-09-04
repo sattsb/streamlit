@@ -1,0 +1,46 @@
+import streamlit as st
+import duckdb
+import pandas as pd
+import plotly.express as px
+
+from utils import run_query, register_dataframe
+
+st.title("Adhoc Parquet File Analysis")
+# Upload Parquet
+parquet_files = st.file_uploader("Upload one or more Parquet files", type=["parquet"], accept_multiple_files=True)
+table_names = []
+if parquet_files:
+    for parquet_file in parquet_files:
+        import re, os
+        base_name = os.path.splitext(os.path.basename(parquet_file.name))[0]
+        table_name = re.sub(r'\W+', '_', base_name)
+        try:
+            df = pd.read_parquet(parquet_file)
+        except Exception as e:
+            st.error(f"Error reading {parquet_file.name}: {e}")
+            continue
+        if df.empty:
+            st.warning(f"{parquet_file.name} is empty or could not be parsed.")
+            continue
+        try:
+            register_dataframe(table_name, df)
+            table_names.append(table_name)
+        except Exception as e:
+            st.error(f"Error registering {parquet_file.name} as table {table_name}: {e}")
+            continue
+        st.success(f"{parquet_file.name} uploaded and registered as '{table_name}' table.")
+        st.subheader(f"Preview of {parquet_file.name} ({table_name})")
+        st.dataframe(df.head())
+        st.markdown("---")
+
+    if table_names:
+        st.subheader("Ad-hoc SQL Query on Uploaded Tables")
+        st.info(f"Available tables: {', '.join(table_names)}")
+        default_query = f"SELECT * FROM {table_names[0]} LIMIT 10"
+        user_query = st.text_area("Enter your SQL query:", value=default_query, height=100)
+        if st.button("Run Parquet Query"):
+            try:
+                result = run_query(user_query)
+                st.dataframe(result)
+            except Exception as e:
+                st.error(f"Query error: {e}")
