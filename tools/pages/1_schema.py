@@ -30,7 +30,7 @@ if uploaded_file:
             table = pq.read_table(uploaded_file)
             schema = str(table.schema)
             st.subheader("Parquet Schema")
-            st.code(schema, language="text", line_numbers=True, scrollable=True)
+            st.code(schema, language="text", line_numbers=True)
         except Exception as e:
             st.error(f"Error reading Parquet file: {e}")
     else:
